@@ -32,13 +32,19 @@ player_x = 3 * TILE  # Start at x = 3 tiles from the left
 player_y = 3 * TILE  # Start at y = 3 tiles from the top
 player_angle = math.pi / 2  # Initial angle facing "east"
 
+# Enemies and objects (x, y positions in tile units)
+objects = [
+    {'x': 5 * TILE, 'y': 5 * TILE, 'texture': 'enemy_texture.png'}
+]
+
+# Load textures
+wall_texture = pygame.image.load('wall_texture.png')
+enemy_texture = pygame.image.load('enemy_texture.png')
 
 
 # Function to cast rays
 def cast_rays(screen):
     start_angle = player_angle - HALF_FOV  # Starting angle for the raycasting
-
-    
 
     for ray in range(NUM_RAYS):
         ray_angle = start_angle + ray * DELTA_ANGLE
@@ -56,35 +62,39 @@ def cast_rays(screen):
                 # Wall height projection
                 proj_height = TILE * DISTANCE_PROJ_PLANE / (adjusted_depth + 0.0001)
 
-                # Check wall orientation based on map indices
-                if (target_x // TILE) % 2 == 0:  # North-South walls
-                    color = (200, 0, 0)  # Red for North-South walls
-                else:  # East-West walls
-                    color = (0, 200, 0)  # Green for East-West walls
+                # Texture-based wall rendering
+                tex_width, tex_height = wall_texture.get_size()
+                texture_x = int((target_x % TILE) / TILE * tex_width)
+                texture_slice = wall_texture.subsurface(texture_x, 0, 1, tex_height)
 
-                pygame.draw.rect(screen, color, (ray * SCALE, SCREEN_HEIGHT // 2 - proj_height // 2, SCALE, proj_height))
+                # Scale the texture slice to the height of the projected wall
+                texture_slice = pygame.transform.scale(texture_slice, (SCALE, int(proj_height)))
+
+                # Draw the texture slice on the screen
+                screen.blit(texture_slice, (ray * SCALE, SCREEN_HEIGHT // 2 - proj_height // 2))
                 break
 
-    # Textures for Walls
-    wall_texture = pygame.image.load('wall_texture.png')
-    
-    # Texture-based wall rendering
-    tex_width, tex_height = wall_texture.get_size()
+        start_angle += DELTA_ANGLE
 
-    # Inside cast_rays function (replacing the solid color wall rendering)
-    texture_x = int((target_x % TILE) / TILE * tex_width)
-    texture_slice = wall_texture.subsurface(texture_x, 0, 1, tex_height)
+    # Draw objects (e.g., enemies)
+    for obj in objects:
+        draw_object(screen, obj)
 
-    # Scale the texture slice to the height of the projected wall
-    texture_slice = pygame.transform.scale(texture_slice, (SCALE, int(proj_height)))
 
-    # Draw the texture slice on the screen
-    screen.blit(texture_slice, (ray * SCALE, SCREEN_HEIGHT // 2 - proj_height // 2))
-            
+def draw_object(screen, obj):
+    # Calculate angle and distance from player to object
+    dx = obj['x'] - player_x
+    dy = obj['y'] - player_y
+    distance = math.sqrt(dx**2 + dy**2)
 
-    start_angle += DELTA_ANGLE
+    angle_to_object = math.atan2(dy, dx)
+    angle_diff = normalize_angle(player_angle - angle_to_object)
 
-        
+    if -HALF_FOV < angle_diff < HALF_FOV and distance < MAX_DEPTH:
+        proj_height = TILE * DISTANCE_PROJ_PLANE / distance
+        texture_slice = pygame.transform.scale(enemy_texture, (SCALE, int(proj_height)))
+        ray = (angle_diff + HALF_FOV) / DELTA_ANGLE
+        screen.blit(texture_slice, (ray * SCALE, SCREEN_HEIGHT // 2 - proj_height // 2))
 
 
 def normalize_angle(angle):
@@ -120,6 +130,7 @@ def handle_movement():
         player_angle += rot_speed
 
 
+# Minimap rendering
 def draw_minimap(screen):
     map_scale = 8  # Scale down the map for the minimap
     for y in range(MAP_HEIGHT):
@@ -131,10 +142,14 @@ def draw_minimap(screen):
     pygame.draw.circle(screen, (255, 0, 0), (int(player_x // TILE * map_scale), int(player_y // TILE * map_scale)), 5)
 
     # Draw player's field of view
-    pygame.draw.line(screen, (255, 255, 0), 
+    pygame.draw.line(screen, (255, 255, 0),
                      (player_x // TILE * map_scale, player_y // TILE * map_scale),
-                     ((player_x + 50 * math.cos(player_angle)) // TILE * map_scale, 
+                     ((player_x + 50 * math.cos(player_angle)) // TILE * map_scale,
                       (player_y + 50 * math.sin(player_angle)) // TILE * map_scale), 2)
+
+    # Draw objects on minimap
+    for obj in objects:
+        pygame.draw.circle(screen, (0, 0, 255), (int(obj['x'] // TILE * map_scale), int(obj['y'] // TILE * map_scale)), 5)
 
 
 # Main function
@@ -158,11 +173,7 @@ def main():
         pygame.display.flip()  # Update the display
         clock.tick(60)  # Maintain 60 FPS
 
-
-
     pygame.quit()
-
-
 
 
 if __name__ == "__main__":
