@@ -24,5 +24,5 @@ The primary goal is to explore and implement key aspects of 3D rendering using t
 
 ## Requirements
 - **SDL2**: The project uses **SDL2** to create windows and handle input.
-- **C++**: The project is written in **C++**.
+- **C++**: The project is written in **Python**.
 
